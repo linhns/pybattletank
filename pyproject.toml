@@ -1,6 +1,6 @@
 [project]
 name = "pybattletank"
-version = "0.0.1"
+version = "0.0.2"
 description = "BattleTank game using pygame"
 authors = [{ name = "Nguyen Son Linh", email = "linhns59@gmail.com" }]
 readme = "README.md"
@@ -43,6 +43,9 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.gui-scripts]
+pybattletank = "pybattletank.main:main"
 
 [tool.setuptools]
 py-modules = ["pybattletank"]

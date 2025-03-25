@@ -1,13 +1,4 @@
-import pygame
-
-from pybattletank.game import Game
-
-
-def main() -> None:
-    game = Game()
-    game.run()
-    pygame.quit()
-
+from .main import main
 
 if __name__ == "__main__":
     main()
