@@ -7,6 +7,234 @@ class GameState:
     def __init__(self) -> None:
         self.world_size = (16, 10)
         self.units = [Tank(self, (5, 4), (1, 0)), Tower(self, (10, 3), (0, 1)), Tower(self, (10, 5), (0, 1))]
+        self.ground = [
+            [
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (7, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (7, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (6, 4),
+                (7, 2),
+                (7, 2),
+            ],
+            [
+                (5, 1),
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (6, 1),
+                (6, 2),
+                (5, 1),
+                (6, 1),
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (6, 1),
+                (5, 1),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (7, 1),
+            ],
+            [
+                (5, 1),
+                (7, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 5),
+                (7, 2),
+                (7, 2),
+                (7, 2),
+                (7, 2),
+                (7, 2),
+                (7, 2),
+                (7, 2),
+                (8, 5),
+                (5, 1),
+                (5, 1),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (7, 1),
+            ],
+            [
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+                (7, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (7, 1),
+                (5, 1),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (6, 4),
+                (7, 2),
+                (7, 2),
+                (8, 4),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (5, 1),
+                (5, 1),
+                (7, 1),
+                (5, 1),
+                (5, 1),
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (7, 4),
+                (7, 2),
+                (7, 2),
+            ],
+            [
+                (5, 1),
+                (5, 1),
+                (6, 2),
+                (6, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+                (5, 1),
+            ],
+        ]
+        self.walls = [
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                (1, 3),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+            ],
+            [None, None, None, None, None, None, None, None, None, (2, 1), None, None, None, None, None, None],
+            [None, None, None, None, None, None, None, None, None, (2, 1), None, None, (1, 3), (1, 1), (0, 3), None],
+            [None, None, None, None, None, None, None, (1, 1), (1, 1), (3, 3), None, None, (2, 1), None, (2, 1), None],
+            [None, None, None, None, None, None, None, None, None, None, None, None, (2, 1), None, (2, 1), None],
+            [None, None, None, None, None, None, None, (1, 1), (1, 1), (0, 3), None, None, (2, 1), None, (2, 1), None],
+            [None, None, None, None, None, None, None, None, None, (2, 1), None, None, (2, 1), None, (2, 1), None],
+            [None, None, None, None, None, None, None, None, None, (2, 1), None, None, (2, 3), (1, 1), (3, 3), None],
+            [None, None, None, None, None, None, None, None, None, (2, 1), None, None, None, None, None, None],
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                (2, 3),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+                (1, 1),
+            ],
+        ]
 
     def update(self, move_tank_command: tuple[int, int]) -> None:
         for unit in self.units:
@@ -35,12 +263,62 @@ class Tank(Unit):
         for unit in self.state.units:
             if (nx, ny) == unit.position:
                 return
+        if self.state.walls[ny][nx] is not None:
+            return
         self.position = (nx, ny)
 
 
 class Tower(Unit):
     def move(self, move_vector: tuple[int, int]) -> None:
         pass
+
+
+class Layer:
+    def __init__(self, ui: "UserInterface", image_filename: str) -> None:
+        self.ui = ui
+        self.tileset = pygame.image.load(image_filename)
+
+    def draw_tile(self, surface: pygame.Surface, position: tuple[int, int], tile: tuple[int, int]) -> None:
+        tile_width = self.ui.tile_width
+        tile_height = self.ui.tile_height
+        sprite_x = position[0] * tile_width
+        sprite_y = position[1] * tile_height
+
+        tile_x = tile[0] * tile_width
+        tile_y = tile[1] * tile_height
+        tile_rect = pygame.Rect(tile_x, tile_y, tile_width, tile_height)
+        surface.blit(self.tileset, (sprite_x, sprite_y), tile_rect)
+
+    def render(self, surface: pygame.Surface) -> None:
+        raise NotImplementedError()
+
+
+class ArrayLayer(Layer):
+    def __init__(
+        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[tuple[int, int]]]
+    ) -> None:
+        super().__init__(ui, image_filename)
+        self.state = state
+        self.array = array
+
+    def render(self, surface: pygame.Surface) -> None:
+        for y in range(self.state.world_size[1]):
+            for x in range(self.state.world_size[0]):
+                tile = self.array[y][x]
+                if tile is not None:
+                    self.draw_tile(surface, (x, y), tile)
+
+
+class UnitsLayer(Layer):
+    def __init__(self, ui: "UserInterface", image_filename: str, state: GameState, units: list[Unit]) -> None:
+        super().__init__(ui, image_filename)
+        self.state = state
+        self.units = units
+
+    def render(self, surface: pygame.Surface) -> None:
+        for unit in self.units:
+            self.draw_tile(surface, unit.position, unit.tile)
+            self.draw_tile(surface, unit.position, (4, 1))
 
 
 class UserInterface:
@@ -53,8 +331,15 @@ class UserInterface:
         self.render_width = self.state.world_size[0] * self.tile_width
         self.render_height = self.state.world_size[1] * self.tile_height
 
-        path = importlib.resources.files("pybattletank.assets").joinpath("units.png")
-        self.units_tileset = pygame.image.load(str(path))
+        state = self.state
+        background_path = importlib.resources.files("pybattletank.assets").joinpath("ground.png")
+        walls_path = importlib.resources.files("pybattletank.assets").joinpath("walls.png")
+        units_path = importlib.resources.files("pybattletank.assets").joinpath("units.png")
+        self.layers = [
+            ArrayLayer(self, str(background_path), state, state.ground),
+            ArrayLayer(self, str(walls_path), state, state.walls),
+            UnitsLayer(self, str(units_path), state, state.units),
+        ]
 
         window_width = 800
         window_height = (window_width * self.render_height) // self.render_width
@@ -97,26 +382,10 @@ class UserInterface:
     def update(self) -> None:
         self.state.update((self.tank_dx, self.tank_dy))
 
-    def draw_unit(self, surface: pygame.Surface, unit: Unit) -> None:
-        sprite_x = unit.position[0] * self.tile_width
-        sprite_y = unit.position[1] * self.tile_height
-
-        tile_x = unit.tile[0] * self.tile_width
-        tile_y = unit.tile[1] * self.tile_height
-        tile_rect = pygame.Rect(tile_x, tile_y, self.tile_width, self.tile_height)
-        surface.blit(self.units_tileset, (sprite_x, sprite_y), tile_rect)
-
-        # Gun
-        tile_x = 4 * self.tile_width
-        tile_y = 1 * self.tile_height
-        tile_rect = pygame.Rect(tile_x, tile_y, self.tile_width, self.tile_height)
-        surface.blit(self.units_tileset, (sprite_x, sprite_y), tile_rect)
-
     def render_world(self, surface: pygame.Surface) -> None:
         surface.fill((0, 64, 0))
-        state = self.state
-        for unit in state.units:
-            self.draw_unit(surface, unit)
+        for layer in self.layers:
+            layer.render(surface)
 
     def render(self) -> None:
         render_width = self.render_width
