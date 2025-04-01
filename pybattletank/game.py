@@ -1,13 +1,22 @@
 import importlib.resources
+import math
 
 import pygame
+
+
+class Unit:
+    def __init__(self, state: "GameState", position: tuple[int, int], tile: tuple[int, int]) -> None:
+        self.state = state
+        self.position = position
+        self.tile = tile
+        self.orientation = 0
+        self.weapon_target = (0.0, 0.0)
 
 
 class GameState:
     def __init__(self) -> None:
         self.world_size = (16, 10)
-        self.units = [Tank(self, (5, 4), (1, 0)), Tower(self, (10, 3), (0, 1)), Tower(self, (10, 5), (0, 1))]
-        self.ground = [
+        self.ground: list[list[tuple[int, int] | None]] = [
             [
                 (5, 1),
                 (5, 1),
@@ -235,42 +244,57 @@ class GameState:
                 (1, 1),
             ],
         ]
+        self.units = [
+            Unit(self, (1, 9), (1, 0)),
+            Unit(self, (6, 3), (0, 2)),
+            Unit(self, (6, 5), (0, 2)),
+            Unit(self, (13, 3), (0, 1)),
+            Unit(self, (13, 6), (0, 1)),
+        ]
 
-    def update(self, move_tank_command: tuple[int, int]) -> None:
-        for unit in self.units:
-            unit.move(move_tank_command)
 
-
-class Unit:
-    def __init__(self, state: GameState, position: tuple[int, int], tile: tuple[int, int]) -> None:
-        self.state = state
-        self.position = position
-        self.tile = tile
-
-    def move(self, move_vector: tuple[int, int]) -> None:
+class Command:
+    def run(self) -> None:
         raise NotImplementedError()
 
 
-class Tank(Unit):
-    def move(self, move_vector: tuple[int, int]) -> None:
-        x, y = self.position
-        dx, dy = move_vector
-        nx, ny = (x + dx, y + dy)
+class TargetCommand(Command):
+    def __init__(self, state: GameState, unit: Unit, target: tuple[float, float]) -> None:
+        self.state = state
+        self.unit = unit
+        self.target = target
 
-        world_width, world_height = self.state.world_size
-        if nx < 0 or nx >= world_width or ny < 0 or ny >= world_height:
+    def run(self) -> None:
+        self.unit.weapon_target = self.target
+
+
+class MoveCommand(Command):
+    def __init__(self, state: GameState, unit: Unit, move_vector: tuple[int, int]) -> None:
+        self.state = state
+        self.unit = unit
+        self.move_vector = move_vector
+
+    def run(self) -> None:
+        dx, dy = self.move_vector
+        if dx < 0:
+            self.unit.orientation = 90
+        if dx > 0:
+            self.unit.orientation = -90
+        if dy < 0:
+            self.unit.orientation = 0
+        if dy < 0:
+            self.unit.orientation = 180
+
+        x, y = self.unit.position
+        nx, ny = x + dx, y + dy
+        if nx < 0 or nx >= self.state.world_size[0] or ny < 0 or ny >= self.state.world_size[1]:
+            return
+        if self.state.walls[ny][nx] is not None:
             return
         for unit in self.state.units:
             if (nx, ny) == unit.position:
                 return
-        if self.state.walls[ny][nx] is not None:
-            return
-        self.position = (nx, ny)
-
-
-class Tower(Unit):
-    def move(self, move_vector: tuple[int, int]) -> None:
-        pass
+        self.unit.position = (nx, ny)
 
 
 class Layer:
@@ -278,16 +302,29 @@ class Layer:
         self.ui = ui
         self.tileset = pygame.image.load(image_filename)
 
-    def draw_tile(self, surface: pygame.Surface, position: tuple[int, int], tile: tuple[int, int]) -> None:
+    def draw_tile(
+        self,
+        surface: pygame.Surface,
+        position: tuple[int, int],
+        tile_coords: tuple[int, int],
+        angle: float | None = None,
+    ) -> None:
         tile_width = self.ui.tile_width
         tile_height = self.ui.tile_height
         sprite_x = position[0] * tile_width
         sprite_y = position[1] * tile_height
-
-        tile_x = tile[0] * tile_width
-        tile_y = tile[1] * tile_height
+        tile_x = tile_coords[0] * tile_width
+        tile_y = tile_coords[1] * tile_height
         tile_rect = pygame.Rect(tile_x, tile_y, tile_width, tile_height)
-        surface.blit(self.tileset, (sprite_x, sprite_y), tile_rect)
+        if angle is None:
+            surface.blit(self.tileset, (sprite_x, sprite_y), tile_rect)
+        else:
+            tile = pygame.Surface((tile_width, tile_height), pygame.SRCALPHA)
+            tile.blit(self.tileset, (0, 0), tile_rect)
+            rotated_tile = pygame.transform.rotate(tile, angle)
+            sprite_x -= (rotated_tile.get_width() - tile.get_width()) // 2
+            sprite_y -= (rotated_tile.get_height() - tile.get_height()) // 2
+            surface.blit(rotated_tile, (sprite_x, sprite_y))
 
     def render(self, surface: pygame.Surface) -> None:
         raise NotImplementedError()
@@ -295,7 +332,7 @@ class Layer:
 
 class ArrayLayer(Layer):
     def __init__(
-        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[tuple[int, int]]]
+        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[tuple[int, int] | None]]
     ) -> None:
         super().__init__(ui, image_filename)
         self.state = state
@@ -317,8 +354,13 @@ class UnitsLayer(Layer):
 
     def render(self, surface: pygame.Surface) -> None:
         for unit in self.units:
-            self.draw_tile(surface, unit.position, unit.tile)
-            self.draw_tile(surface, unit.position, (4, 1))
+            self.draw_tile(surface, unit.position, unit.tile, unit.orientation)
+
+            dir_x = unit.weapon_target[0] - unit.position[0]
+            dir_y = unit.weapon_target[1] - unit.position[1]
+            angle = math.atan2(-dir_x, -dir_y) * 180 / math.pi
+
+            self.draw_tile(surface, unit.position, (4, 1), angle)
 
 
 class UserInterface:
@@ -330,6 +372,10 @@ class UserInterface:
 
         self.render_width = self.state.world_size[0] * self.tile_width
         self.render_height = self.state.world_size[1] * self.tile_height
+        self.rescaled_x = 0
+        self.rescaled_y = 0
+        self.rescaled_scale_x = 1.0
+        self.rescaled_scale_y = 1.0
 
         state = self.state
         background_path = importlib.resources.files("pybattletank.assets").joinpath("ground.png")
@@ -353,15 +399,14 @@ class UserInterface:
         icon = pygame.image.load(str(icon_path))
         pygame.display.set_icon(icon)
 
-        self.tank_dx = 0
-        self.tank_dy = 0
+        self.player_unit = self.state.units[0]
+        self.commands: list[Command] = []
 
         self.clock = pygame.time.Clock()
         self.running = True
 
-    def process_input(self) -> None:
-        self.tank_dx = 0
-        self.tank_dy = 0
+    def process_keypresses(self) -> None:
+        dx, dy = 0, 0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -371,16 +416,38 @@ class UserInterface:
                     self.running = False
                     break
                 elif event.key == pygame.K_RIGHT:
-                    self.tank_dx = 1
+                    dx = 1
                 elif event.key == pygame.K_LEFT:
-                    self.tank_dx = -1
+                    dx = -1
                 elif event.key == pygame.K_DOWN:
-                    self.tank_dy = 1
+                    dy = 1
                 elif event.key == pygame.K_UP:
-                    self.tank_dy = -1
+                    dy = -1
+        if dx != 0 or dy != 0:
+            command = MoveCommand(self.state, self.player_unit, (dx, dy))
+            self.commands.append(command)
+
+    def process_mouseclicks(self) -> None:
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_x = (mouse_pos[0] - self.rescaled_x) / self.rescaled_scale_x
+        mouse_y = (mouse_pos[1] - self.rescaled_y) / self.rescaled_scale_y
+        target_cell = (mouse_x / self.tile_width - 0.5, mouse_y / self.tile_height - 0.5)
+        command = TargetCommand(self.state, self.player_unit, target_cell)
+        self.commands.append(command)
+
+        for unit in self.state.units:
+            if unit != self.player_unit:
+                command = TargetCommand(self.state, unit, self.player_unit.position)
+                self.commands.append(command)
+
+    def process_input(self) -> None:
+        self.process_keypresses()
+        self.process_mouseclicks()
 
     def update(self) -> None:
-        self.state.update((self.tank_dx, self.tank_dy))
+        for command in self.commands:
+            command.run()
+        self.commands.clear()
 
     def render_world(self, surface: pygame.Surface) -> None:
         surface.fill((0, 64, 0))
