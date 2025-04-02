@@ -1,9 +1,8 @@
 from pybattletank.game import GameState
 
 
-def test_non_move() -> None:
+def test_is_inside() -> None:
     state = GameState()
-    old_positions = [unit.position for unit in state.units]
-    state.update((0, 0))
-    new_positions = [unit.position for unit in state.units]
-    assert old_positions == new_positions
+    assert state.is_inside((0, 0))
+    assert state.is_inside((15, 9))
+    assert not state.is_inside((16, 10))

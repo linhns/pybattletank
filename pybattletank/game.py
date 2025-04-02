@@ -1,16 +1,32 @@
 import importlib.resources
 import math
+from collections.abc import Sequence
 
 import pygame
 
 
-class Unit:
+class GameItem:
     def __init__(self, state: "GameState", position: tuple[int, int], tile: tuple[int, int]) -> None:
         self.state = state
+        self.alive = True
         self.position = position
         self.tile = tile
-        self.orientation = 0
+        self.orientation = 0.0
+
+
+class Unit(GameItem):
+    def __init__(self, state: "GameState", position: tuple[int, int], tile: tuple[int, int]) -> None:
+        super().__init__(state, position, tile)
         self.weapon_target = (0.0, 0.0)
+        self.last_bullet_epoch = -100
+
+
+class Bullet(GameItem):
+    def __init__(self, state: "GameState", unit: Unit) -> None:
+        super().__init__(state, unit.position, (2, 1))
+        self.unit = unit
+        self.start_position = unit.position
+        self.end_position = unit.weapon_target
 
 
 class GameState:
@@ -251,6 +267,31 @@ class GameState:
             Unit(self, (13, 3), (0, 1)),
             Unit(self, (13, 6), (0, 1)),
         ]
+        self.bullets: list[Bullet] = []
+        self.bullet_speed = 0.1
+        self.bullet_range = 4
+        self.bullet_delay = 10
+        self.epoch = 0
+
+    def is_inside(self, position: tuple[float, float]) -> bool:
+        return (
+            position[0] >= 0
+            and position[0] < self.world_size[0]
+            and position[1] >= 0
+            and position[1] < self.world_size[1]
+        )
+
+    def find_unit(self, position: tuple[float, float]) -> Unit | None:
+        for unit in self.units:
+            if int(unit.position[0]) == int(position[0]) and int(unit.position[1]) == int(position[1]):
+                return unit
+        return None
+
+    def find_live_unit(self, position: tuple[float, float]) -> Unit | None:
+        unit = self.find_unit(position)
+        if unit is None or not unit.alive:
+            return None
+        return unit
 
 
 class Command:
@@ -275,6 +316,9 @@ class MoveCommand(Command):
         self.move_vector = move_vector
 
     def run(self) -> None:
+        if not self.unit.alive:
+            return
+
         dx, dy = self.move_vector
         if dx < 0:
             self.unit.orientation = 90
@@ -295,6 +339,96 @@ class MoveCommand(Command):
             if (nx, ny) == unit.position:
                 return
         self.unit.position = (nx, ny)
+
+
+class ShootCommand(Command):
+    def __init__(self, state: GameState, unit: Unit) -> None:
+        self.state = state
+        self.unit = unit
+
+    def run(self) -> None:
+        unit = self.unit
+        if not unit.alive:
+            return
+
+        state = self.state
+        if state.epoch - unit.last_bullet_epoch < state.bullet_delay:
+            return
+
+        unit.last_bullet_epoch = state.epoch
+        state.bullets.append(Bullet(state, unit))
+
+
+def vector_sub(a: tuple[float, float], b: tuple[float, float]) -> tuple[float, float]:
+    return a[0] - b[0], a[1] - b[1]
+
+
+def vector_add(a: tuple[float, float], b: tuple[float, float], w: float = 1.0) -> tuple[float, float]:
+    return a[0] + b[0] * w, a[1] + b[1] * w
+
+
+def vector_norm(a: tuple[float, float]) -> float:
+    return math.sqrt(a[0] ** 2 + a[1] ** 2)
+
+
+def vector_normalize(a: tuple[float, float]) -> tuple[float, float]:
+    norm = vector_norm(a)
+    if norm < 1e-4:
+        return 0, 0
+    return a[0] / norm, a[1] / norm
+
+
+def vector_dist(a: tuple[float, float], b: tuple[float, float]) -> float:
+    return vector_norm(vector_sub(a, b))
+
+
+class MoveBulletCommand(Command):
+    def __init__(self, state: GameState, bullet: Bullet) -> None:
+        self.state = state
+        self.bullet = bullet
+
+    def run(self) -> None:
+        bullet = self.bullet
+        state = self.state
+        direction = vector_sub(bullet.end_position, bullet.start_position)
+        direction = vector_normalize(direction)
+        new_pos = vector_add(bullet.position, direction, state.bullet_speed)
+
+        if not state.is_inside(new_pos):
+            bullet.alive = False
+            return
+
+        dir_x, dir_y = direction
+        if (
+            (dir_x >= 0 and new_pos[0] >= bullet.end_position[0])
+            or (dir_x < 0 and new_pos[0] <= bullet.end_position[0])
+        ) and (
+            (dir_y >= 0 and new_pos[1] >= bullet.end_position[1])
+            or (dir_y < 0 and new_pos[1] <= bullet.end_position[1])
+        ):
+            bullet.alive = False
+            return
+
+        if vector_dist(new_pos, bullet.start_position) > state.bullet_range:
+            bullet.alive = False
+            return
+
+        new_center_pos = vector_add(new_pos, (0.5, 0.5))
+        unit = state.find_live_unit(new_center_pos)
+        if unit is not None and unit != bullet.unit:
+            bullet.alive = False
+            unit.alive = False
+            return
+
+        bullet.position = new_pos  # type: ignore[assignment]
+
+
+class DeleteDestroyedCommand(Command):
+    def __init__(self, items: Sequence[GameItem]) -> None:
+        self.items = items
+
+    def run(self) -> None:
+        self.items = [item for item in self.items if item.alive]
 
 
 class Layer:
@@ -363,6 +497,18 @@ class UnitsLayer(Layer):
             self.draw_tile(surface, unit.position, (4, 1), angle)
 
 
+class BulletsLayer(Layer):
+    def __init__(self, ui: "UserInterface", image_filename: str, state: GameState, bullets: list[Bullet]) -> None:
+        super().__init__(ui, image_filename)
+        self.state = state
+        self.bullets = bullets
+
+    def render(self, surface: pygame.Surface) -> None:
+        for bullet in self.bullets:
+            if bullet.alive:
+                self.draw_tile(surface, bullet.position, bullet.tile, bullet.orientation)
+
+
 class UserInterface:
     def __init__(self) -> None:
         pygame.init()
@@ -381,10 +527,12 @@ class UserInterface:
         background_path = importlib.resources.files("pybattletank.assets").joinpath("ground.png")
         walls_path = importlib.resources.files("pybattletank.assets").joinpath("walls.png")
         units_path = importlib.resources.files("pybattletank.assets").joinpath("units.png")
+        bullets_path = importlib.resources.files("pybattletank.assets").joinpath("explosions.png")
         self.layers = [
             ArrayLayer(self, str(background_path), state, state.ground),
             ArrayLayer(self, str(walls_path), state, state.walls),
             UnitsLayer(self, str(units_path), state, state.units),
+            BulletsLayer(self, str(bullets_path), state, state.bullets),
         ]
 
         window_width = 800
@@ -405,49 +553,52 @@ class UserInterface:
         self.clock = pygame.time.Clock()
         self.running = True
 
-    def process_keypresses(self) -> None:
+    def process_input(self) -> None:
         dx, dy = 0, 0
+        mouse_clicked = False
+        movement_keys = {pygame.K_RIGHT: (1, 0), pygame.K_LEFT: (-1, 0), pygame.K_DOWN: (0, 1), pygame.K_UP: (0, -1)}
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 self.running = False
                 break
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.running = False
-                    break
-                elif event.key == pygame.K_RIGHT:
-                    dx = 1
-                elif event.key == pygame.K_LEFT:
-                    dx = -1
-                elif event.key == pygame.K_DOWN:
-                    dy = 1
-                elif event.key == pygame.K_UP:
-                    dy = -1
-        if dx != 0 or dy != 0:
-            command = MoveCommand(self.state, self.player_unit, (dx, dy))
-            self.commands.append(command)
+            elif event.type == pygame.KEYDOWN and event.key in movement_keys:
+                dx, dy = movement_keys[event.key]
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_clicked = True
 
-    def process_mouseclicks(self) -> None:
+        state = self.state
+        player_unit = self.player_unit
+        if dx != 0 or dy != 0:
+            self.commands.append(MoveCommand(state, player_unit, (dx, dy)))
+
         mouse_pos = pygame.mouse.get_pos()
         mouse_x = (mouse_pos[0] - self.rescaled_x) / self.rescaled_scale_x
         mouse_y = (mouse_pos[1] - self.rescaled_y) / self.rescaled_scale_y
         target_cell = (mouse_x / self.tile_width - 0.5, mouse_y / self.tile_height - 0.5)
-        command = TargetCommand(self.state, self.player_unit, target_cell)
-        self.commands.append(command)
+        self.commands.append(TargetCommand(state, player_unit, target_cell))
 
-        for unit in self.state.units:
-            if unit != self.player_unit:
-                command = TargetCommand(self.state, unit, self.player_unit.position)
-                self.commands.append(command)
+        self.commands.extend([
+            TargetCommand(state, unit, player_unit.position) for unit in state.units if unit != player_unit
+        ])
+        self.commands.extend([
+            ShootCommand(state, unit)
+            for unit in state.units
+            if unit != player_unit and vector_dist(unit.position, player_unit.position) <= state.bullet_range
+        ])
 
-    def process_input(self) -> None:
-        self.process_keypresses()
-        self.process_mouseclicks()
+        if mouse_clicked:
+            self.commands.append(ShootCommand(state, player_unit))
+
+        for bullet in state.bullets:
+            self.commands.append(MoveBulletCommand(state, bullet))
+
+        self.commands.append(DeleteDestroyedCommand(state.bullets))
 
     def update(self) -> None:
         for command in self.commands:
             command.run()
         self.commands.clear()
+        self.state.epoch += 1
 
     def render_world(self, surface: pygame.Surface) -> None:
         surface.fill((0, 64, 0))
@@ -475,6 +626,8 @@ class UserInterface:
             rescaled_y = 0
 
         rescaled_surface = pygame.transform.scale(render_surface, (rescaled_width, rescaled_height))
+        self.rescaled_scale_x = rescaled_surface.get_width() / render_surface.get_width()
+        self.rescaled_scale_y = rescaled_surface.get_height() / render_surface.get_height()
         self.window.blit(rescaled_surface, (rescaled_x, rescaled_y))
 
         pygame.display.update()
