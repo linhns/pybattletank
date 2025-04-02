@@ -467,7 +467,7 @@ class Layer:
 
 class ArrayLayer(Layer):
     def __init__(
-        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[tuple[int, int] | None]]
+        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[Optional[tuple[int, int]]]]
     ) -> None:
         super().__init__(ui, image_filename)
         self.state = state
