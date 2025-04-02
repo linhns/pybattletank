@@ -1,6 +1,7 @@
 import importlib.resources
 import math
 from collections.abc import Sequence
+from typing import Optional
 
 import pygame
 
@@ -32,7 +33,7 @@ class Bullet(GameItem):
 class GameState:
     def __init__(self) -> None:
         self.world_size = (16, 10)
-        self.ground: list[list[tuple[int, int] | None]] = [
+        self.ground: list[list[Optional[tuple[int, int]]]] = [
             [
                 (5, 1),
                 (5, 1),
@@ -281,13 +282,13 @@ class GameState:
             and position[1] < self.world_size[1]
         )
 
-    def find_unit(self, position: tuple[float, float]) -> Unit | None:
+    def find_unit(self, position: tuple[float, float]) -> Optional[Unit]:
         for unit in self.units:
             if int(unit.position[0]) == int(position[0]) and int(unit.position[1]) == int(position[1]):
                 return unit
         return None
 
-    def find_live_unit(self, position: tuple[float, float]) -> Unit | None:
+    def find_live_unit(self, position: tuple[float, float]) -> Optional[Unit]:
         unit = self.find_unit(position)
         if unit is None or not unit.alive:
             return None
@@ -441,7 +442,7 @@ class Layer:
         surface: pygame.Surface,
         position: tuple[int, int],
         tile_coords: tuple[int, int],
-        angle: float | None = None,
+        angle: Optional[float] = None,
     ) -> None:
         tile_width = self.ui.tile_width
         tile_height = self.ui.tile_height
