@@ -1,7 +1,7 @@
 import importlib.resources
 import math
 from collections.abc import Sequence
-from typing import Optional
+from typing import Any, Optional
 
 import pygame
 
@@ -28,6 +28,11 @@ class Bullet(GameItem):
         self.unit = unit
         self.start_position = unit.position
         self.end_position = unit.weapon_target
+
+
+class IGameStateObserver:
+    def unit_destroyed(self, unit: Unit) -> None:
+        pass
 
 
 class GameState:
@@ -273,6 +278,7 @@ class GameState:
         self.bullet_range = 4
         self.bullet_delay = 10
         self.epoch = 0
+        self.observers: list[IGameStateObserver] = []
 
     def is_inside(self, position: tuple[float, float]) -> bool:
         return (
@@ -293,6 +299,13 @@ class GameState:
         if unit is None or not unit.alive:
             return None
         return unit
+
+    def add_observer(self, observer: IGameStateObserver) -> None:
+        self.observers.append(observer)
+
+    def notify_unit_destroyed(self, unit: Unit) -> None:
+        for observer in self.observers:
+            observer.unit_destroyed(unit)
 
 
 class Command:
@@ -419,6 +432,7 @@ class MoveBulletCommand(Command):
         if unit is not None and unit != bullet.unit:
             bullet.alive = False
             unit.alive = False
+            state.notify_unit_destroyed(unit)
             return
 
         bullet.position = new_pos  # type: ignore[assignment]
@@ -432,7 +446,7 @@ class DeleteDestroyedCommand(Command):
         self.items = [item for item in self.items if item.alive]
 
 
-class Layer:
+class Layer(IGameStateObserver):
     def __init__(self, ui: "UserInterface", image_filename: str) -> None:
         self.ui = ui
         self.tileset = pygame.image.load(image_filename)
@@ -467,18 +481,29 @@ class Layer:
 
 class ArrayLayer(Layer):
     def __init__(
-        self, ui: "UserInterface", image_filename: str, state: GameState, array: list[list[Optional[tuple[int, int]]]]
+        self,
+        ui: "UserInterface",
+        image_filename: str,
+        state: GameState,
+        array: list[list[Optional[tuple[int, int]]]],
+        surface_flags: int = pygame.SRCALPHA,
     ) -> None:
         super().__init__(ui, image_filename)
         self.state = state
         self.array = array
+        self.surface: Optional[pygame.Surface] = None
+        self.surface_flags = surface_flags
 
     def render(self, surface: pygame.Surface) -> None:
+        if self.surface is None:
+            self.surface = pygame.Surface(surface.get_size(), self.surface_flags)
+
         for y in range(self.state.world_size[1]):
             for x in range(self.state.world_size[0]):
                 tile = self.array[y][x]
                 if tile is not None:
-                    self.draw_tile(surface, (x, y), tile)
+                    self.draw_tile(self.surface, (x, y), tile)
+        surface.blit(self.surface, (0, 0))
 
 
 class UnitsLayer(Layer):
@@ -510,6 +535,28 @@ class BulletsLayer(Layer):
                 self.draw_tile(surface, bullet.position, bullet.tile, bullet.orientation)
 
 
+class ExplosionsLayer(Layer):
+    def __init__(self, ui: "UserInterface", image_filename: str) -> None:
+        super().__init__(ui, image_filename)
+        self.explosions: list[dict[str, Any]] = []
+        self.max_frame_index = 27
+
+    def add(self, position: tuple[int, int]) -> None:
+        self.explosions.append({"position": position, "frameIndex": 0.0})
+
+    def render(self, surface: pygame.Surface) -> None:
+        for explosion in self.explosions:
+            frame_index = math.floor(explosion["frameIndex"])
+            position = explosion["position"]
+            self.draw_tile(surface, position, (frame_index, 4))
+            explosion["frameIndex"] += 0.5
+
+        self.explosions = [explosion for explosion in self.explosions if explosion["frameIndex"] < self.max_frame_index]
+
+    def unit_destroyed(self, unit: Unit) -> None:
+        self.add(unit.position)
+
+
 class UserInterface:
     def __init__(self) -> None:
         pygame.init()
@@ -529,12 +576,17 @@ class UserInterface:
         walls_path = importlib.resources.files("pybattletank.assets").joinpath("walls.png")
         units_path = importlib.resources.files("pybattletank.assets").joinpath("units.png")
         bullets_path = importlib.resources.files("pybattletank.assets").joinpath("explosions.png")
+        explosions_path = bullets_path
         self.layers = [
             ArrayLayer(self, str(background_path), state, state.ground),
             ArrayLayer(self, str(walls_path), state, state.walls),
             UnitsLayer(self, str(units_path), state, state.units),
             BulletsLayer(self, str(bullets_path), state, state.bullets),
+            ExplosionsLayer(self, str(explosions_path)),
         ]
+
+        for layer in self.layers:
+            state.add_observer(layer)
 
         window_width = 800
         window_height = (window_width * self.render_height) // self.render_width
