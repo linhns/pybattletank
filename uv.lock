@@ -704,6 +704,7 @@ version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "pygame" },
+    { name = "tmx" },
 ]
 
 [package.dev-dependencies]
@@ -721,7 +722,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pygame", specifier = ">=2.6.1" }]
+requires-dist = [
+    { name = "pygame", specifier = ">=2.6.1" },
+    { name = "tmx", specifier = ">=1.10" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -995,6 +999,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/94/e7/b2c673351809dca68
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274", size = 11050 },
 ]
+
+[[package]]
+name = "tmx"
+version = "1.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/17/e3/3ff705b07f1ed23e61547e2496ef70f9d0999b9040b7d77062f0a0bf9881/tmx-1.10.tar.gz", hash = "sha256:6188216e6fa65b56fbdb0134343d96a79785e9bfaf411bfa60e457e4ca6bcaf5", size = 366448 }
 
 [[package]]
 name = "tomli"
