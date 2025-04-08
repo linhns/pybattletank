@@ -1,3 +1,4 @@
+import asyncio
 import importlib.resources
 import math
 import os
@@ -654,7 +655,7 @@ class PlayGameMode(GameMode):
 
 
 class UserInterface:
-    def __init__(self, level_filename: str) -> None:
+    def __init__(self) -> None:
         pygame.init()
 
         self.render_width = 1280
@@ -755,7 +756,7 @@ class UserInterface:
 
         pygame.display.update()
 
-    def run(self) -> None:
+    async def run(self) -> None:
         while self.running:
             if self.active_mode == "Overlay":
                 self.overlay_game_mode.process_input()
@@ -770,3 +771,4 @@ class UserInterface:
                     self.show_message("Error during game update...")
             self.render()
             self.clock.tick(60)
+            await asyncio.sleep(0)

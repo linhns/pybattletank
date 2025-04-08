@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "pygame>=2.6.1",
     "tmx>=1.10",
+    "six>=1.16.0",
 ]
 
 [project.urls]
@@ -46,7 +47,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.gui-scripts]
-pybattletank = "pybattletank.main:main"
+pybattletank = "pybattletank.__main__:main"
 
 [tool.setuptools]
 py-modules = ["pybattletank"]
