@@ -37,6 +37,9 @@ class IGameStateObserver:
     def unit_destroyed(self, unit: Unit) -> None:
         pass
 
+    def bullet_fired(self, unit: Unit) -> None:
+        pass
+
 
 class GameState:
     def __init__(self) -> None:
@@ -77,6 +80,10 @@ class GameState:
     def notify_unit_destroyed(self, unit: Unit) -> None:
         for observer in self.observers:
             observer.unit_destroyed(unit)
+
+    def notify_bullet_fired(self, unit: Unit) -> None:
+        for observer in self.observers:
+            observer.bullet_fired(unit)
 
 
 class Command:
@@ -328,6 +335,26 @@ class ExplosionsLayer(Layer):
         self.add(unit.position)
 
 
+class SoundLayer(Layer):
+    def __init__(self, fire_file: str, explosion_file: str) -> None:
+        fire_sound_path = importlib.resources.files("pybattletank.assets").joinpath(fire_file)
+        self.fire_sound = pygame.mixer.Sound(fire_sound_path)
+        self.fire_sound.set_volume(0.2)
+
+        explosion_sound_path = importlib.resources.files("pybattletank.assets").joinpath(explosion_file)
+        self.explosion_sound = pygame.mixer.Sound(explosion_sound_path)
+        self.explosion_sound.set_volume(0.2)
+
+    def render(self, surface: pygame.Surface) -> None:
+        pass
+
+    def unit_destroyed(self, unit: Unit) -> None:
+        self.explosion_sound.play()
+
+    def bullets_fired(self, unit: Unit) -> None:
+        self.fire_sound.play()
+
+
 class LoadLevelError(RuntimeError):
     def __init__(self, filename: str, message: str):
         super().__init__(f"{filename}: {message}")
@@ -453,8 +480,58 @@ class LevelLoader:
         self.explosions_tileset = tileset.image.source
 
 
+class IGameModeObserver:
+    def load_level_requested(self, filename: str) -> None:
+        pass
+
+    def show_menu_requested(self) -> None:
+        pass
+
+    def show_game_requested(self) -> None:
+        pass
+
+    def game_won(self) -> None:
+        pass
+
+    def game_lost(self) -> None:
+        pass
+
+    def quit_requested(self) -> None:
+        pass
+
+
 class GameMode:
-    def process_input(self) -> None:
+    def __init__(self) -> None:
+        self.observers: list[IGameModeObserver] = []
+
+    def add_observer(self, observer: IGameModeObserver) -> None:
+        self.observers.append(observer)
+
+    def notify_load_level_requested(self, filename: str) -> None:
+        for observer in self.observers:
+            observer.load_level_requested(filename)
+
+    def notify_show_menu_requested(self) -> None:
+        for observer in self.observers:
+            observer.show_menu_requested()
+
+    def notify_show_game_requested(self) -> None:
+        for observer in self.observers:
+            observer.show_game_requested()
+
+    def notify_game_won(self) -> None:
+        for observer in self.observers:
+            observer.game_won()
+
+    def notify_game_lost(self) -> None:
+        for observer in self.observers:
+            observer.game_lost()
+
+    def notify_quit_requested(self) -> None:
+        for observer in self.observers:
+            observer.quit_requested()
+
+    def process_input(self, mouse_x: float, mouse_y: float) -> None:
         raise NotImplementedError()
 
     def update(self) -> None:
@@ -465,18 +542,18 @@ class GameMode:
 
 
 class MessageGameMode(GameMode):
-    def __init__(self, ui: "UserInterface", message: str) -> None:
-        self.ui = ui
+    def __init__(self, message: str) -> None:
+        super().__init__()
         self.message = message
         font_path = importlib.resources.files("pybattletank.assets").joinpath("font.ttf")
         self.font = pygame.font.Font(str(font_path), 36)
 
-    def process_input(self) -> None:
+    def process_input(self, mouse_x: float, mouse_y: float) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.ui.quit_game()
+                self.notify_quit_requested()
             elif event.type == pygame.KEYDOWN and event.key in [pygame.K_ESCAPE, pygame.K_SPACE, pygame.K_RETURN]:
-                self.ui.show_menu()
+                self.notify_show_menu_requested()
 
     def update(self) -> None:
         pass
@@ -489,16 +566,16 @@ class MessageGameMode(GameMode):
 
 
 class MenuGameMode(GameMode):
-    def __init__(self, ui: "UserInterface") -> None:
-        self.ui = ui
+    def __init__(self) -> None:
+        super().__init__()
 
         menu_font_path = importlib.resources.files("pybattletank.assets").joinpath("font.ttf")
         self.title_font = pygame.font.Font(str(menu_font_path), 64)
         self.item_font = pygame.font.Font(str(menu_font_path), 42)
 
         self.menu_items: list[dict] = [
-            {"title": "Level 1", "action": lambda: self.ui.load_level(self.get_level_path("level1.tmx"))},
-            {"title": "Quit", "action": lambda: self.ui.quit_game()},
+            {"title": "Level 1", "action": lambda: self.notify_load_level_requested(self.get_level_path("level1.tmx"))},
+            {"title": "Quit", "action": lambda: self.notify_quit_requested()},
         ]
 
         self.text_color = pygame.Color(200, 0, 0)
@@ -519,13 +596,14 @@ class MenuGameMode(GameMode):
     def update(self) -> None:
         pass
 
-    def process_input(self) -> None:
+    def process_input(self, mouse_x: float, mouse_y: float) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.ui.quit_game()
+                self.notify_quit_requested()
+                print("Here")
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.ui.show_game()
+                    self.notify_show_game_requested()
                 elif event.key == pygame.K_DOWN:
                     self.current_menu_item = min(self.current_menu_item + 1, len(self.menu_items) - 1)
                 elif event.key == pygame.K_UP:
@@ -559,9 +637,6 @@ class MenuGameMode(GameMode):
 
 
 class PlayGameMode(GameMode):
-    def __init__(self, ui: "UserInterface") -> None:
-        self.ui = ui
-
     def load_level(self, filename: str) -> None:
         loader = LevelLoader(filename)
         loader.run()
@@ -583,6 +658,7 @@ class PlayGameMode(GameMode):
             UnitsLayer(self, loader.units_tileset, state, state.units),
             BulletsLayer(self, loader.bullets_tileset, state, state.bullets),
             ExplosionsLayer(self, loader.explosions_tileset),
+            SoundLayer("bullet_fire.wav", "explosion.wav"),
         ]
 
         for layer in self.layers:
@@ -592,16 +668,16 @@ class PlayGameMode(GameMode):
         self.commands: list[Command] = []
         self.game_over = False
 
-    def process_input(self) -> None:
+    def process_input(self, mouse_x: float, mouse_y: float) -> None:
         dx, dy = 0, 0
         mouse_clicked = False
         movement_keys = {pygame.K_RIGHT: (1, 0), pygame.K_LEFT: (-1, 0), pygame.K_DOWN: (0, 1), pygame.K_UP: (0, -1)}
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.ui.quit_game()
+                self.notify_quit_requested()
                 break
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self.ui.show_menu()
+                self.notify_show_menu_requested()
             elif event.type == pygame.KEYDOWN and event.key in movement_keys:
                 dx, dy = movement_keys[event.key]
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -615,7 +691,6 @@ class PlayGameMode(GameMode):
         if dx != 0 or dy != 0:
             self.commands.append(MoveCommand(state, player_unit, (dx, dy)))
 
-        mouse_x, mouse_y = self.ui.get_mouse_pos()
         target_cell = (mouse_x / self.tile_width - 0.5, mouse_y / self.tile_height - 0.5)
         self.commands.append(TargetCommand(state, player_unit, target_cell))
 
@@ -644,17 +719,17 @@ class PlayGameMode(GameMode):
 
         if not self.player_unit.alive:
             self.game_over = True
-            self.ui.show_message("Game Over")
+            self.notify_game_lost()
         elif not any(unit.alive for unit in self.game_state.units if unit != self.player_unit):
             self.game_over = True
-            self.ui.show_message("Victory !!!")
+            self.notify_game_won()
 
     def render(self, surface: pygame.Surface) -> None:
         for layer in self.layers:
             layer.render(surface)
 
 
-class UserInterface:
+class UserInterface(IGameModeObserver):
     def __init__(self) -> None:
         pygame.init()
 
@@ -676,15 +751,29 @@ class UserInterface:
         pygame.display.set_icon(icon)
 
         self.play_game_mode: Optional[PlayGameMode] = None
-        self.overlay_game_mode: GameMode = MenuGameMode(self)
+        self.overlay_game_mode: GameMode = MenuGameMode()
+        self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
 
         self.clock = pygame.time.Clock()
         self.running = True
 
-    def load_level(self, filename: str) -> None:
+    def game_won(self) -> None:
+        self.show_message("Victory!")
+        music_path = importlib.resources.files("pybattletank.assets").joinpath("opening_day.mp3")
+        pygame.mixer.music.load(str(music_path))
+        pygame.mixer.music.play(loops=-1)
+
+    def game_lost(self) -> None:
+        self.show_message("GAME OVER")
+        music_path = importlib.resources.files("pybattletank.assets").joinpath("deadly_talk.mp3")
+        pygame.mixer.music.load(str(music_path))
+        pygame.mixer.music.play(loops=-1)
+
+    def load_level_requested(self, filename: str) -> None:
         if self.play_game_mode is None:
-            self.play_game_mode = PlayGameMode(self)
+            self.play_game_mode = PlayGameMode()
+            self.play_game_mode.add_observer(self)
 
         try:
             self.play_game_mode.load_level(filename)
@@ -703,20 +792,22 @@ class UserInterface:
         mouse_y = (mouse_pos[1] - self.rescaled_y) / self.rescaled_scale_y
         return mouse_x, mouse_y
 
-    def show_game(self) -> None:
+    def show_game_requested(self) -> None:
         if self.play_game_mode is None:
             return
         self.active_mode = "Play"
 
-    def show_menu(self) -> None:
-        self.overlay_game_mode = MenuGameMode(self)
+    def show_menu_requested(self) -> None:
+        self.overlay_game_mode = MenuGameMode()
+        self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
 
     def show_message(self, message: str) -> None:
-        self.overlay_game_mode = MessageGameMode(self, message)
+        self.overlay_game_mode = MessageGameMode(message)
+        self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
 
-    def quit_game(self) -> None:
+    def quit_requested(self) -> None:
         self.running = False
 
     def render(self) -> None:
@@ -758,11 +849,12 @@ class UserInterface:
 
     async def run(self) -> None:
         while self.running:
+            mouse_x, mouse_y = self.get_mouse_pos()
             if self.active_mode == "Overlay":
-                self.overlay_game_mode.process_input()
+                self.overlay_game_mode.process_input(mouse_x, mouse_y)
                 self.overlay_game_mode.update()
             elif self.play_game_mode is not None:
-                self.play_game_mode.process_input()
+                self.play_game_mode.process_input(mouse_x, mouse_y)
                 try:
                     self.play_game_mode.update()
                 except Exception as ex:

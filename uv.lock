@@ -704,6 +704,7 @@ version = "0.0.2"
 source = { editable = "." }
 dependencies = [
     { name = "pygame" },
+    { name = "pygbag" },
     { name = "six" },
     { name = "tmx" },
 ]
@@ -725,6 +726,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pygame", specifier = ">=2.6.1" },
+    { name = "pygbag", specifier = ">=0.9.2" },
     { name = "six", specifier = ">=1.16.0" },
     { name = "tmx", specifier = ">=1.10" },
 ]
@@ -787,6 +789,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/9a/2f/8458240c8908a550254c80b64f8c03d6d46156664df3515a1331ae730b4e/pygame-2.6.1-pp39-pypy39_pp73-macosx_10_15_x86_64.whl", hash = "sha256:bbb7167c92103a2091366e9af26d4914ba3776666e8677d3c93551353fffa626", size = 12782440 },
     { url = "https://files.pythonhosted.org/packages/b8/a5/ef76a85da2cb7bc6b9fc54b0a56cf75f244c8adcd16bab8d0d9d7398bfed/pygame-2.6.1-pp39-pypy39_pp73-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:17498a2b043bc0e795faedef1b081199c688890200aef34991c1941caa2d2c89", size = 14182026 },
     { url = "https://files.pythonhosted.org/packages/8b/11/5519d3dfc8046822289dbd8ffde407e30ddb56b6f4a78ca39121a545a322/pygame-2.6.1-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7103c60939bbc1e05cfc7ba3f1d2ad3bbf103b7828b82a7166a9ab6f51950146", size = 13869271 },
+]
+
+[[package]]
+name = "pygbag"
+version = "0.9.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/27/d6d9cf9c0831481b94606652c0861667d9254aecc59c0f1db0f948a126fe/pygbag-0.9.2.tar.gz", hash = "sha256:0e31860742a8ba9c527135cbb6d64f6d7d8d7b23b71ee87a15f1de9474690c25", size = 152074 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3a/19/6c4b2a515651849138cef43d878eba9a4f8e39113499a99e7c3d97890c5e/pygbag-0.9.2-py3-none-any.whl", hash = "sha256:3a60a80cc28ed21e3d5d98c08a5d8f857911e38e411b6e590ba640158e8656c1", size = 171937 },
 ]
 
 [[package]]
