@@ -1,0 +1,34 @@
+{
+  "defaultWindowHeight": 704,
+  "defaultWindowWidth": 1280,
+  "font": {
+    "menu": "font.ttf",
+    "menuSize": 42,
+    "message": "font.ttf",
+    "messageSize": 28,
+    "title": "font.ttf",
+    "titleSize": 64
+  },
+  "image": {
+    "cursor": "cursor.png"
+  },
+  "music": {
+    "fail": "deadly_talk.mp3",
+    "play": "military_madness.mp3",
+    "start": "gang_war.mp3",
+    "victory": "opening_day.mp3"
+  },
+  "sound": {
+    "explosion": "explosion.wav",
+    "fire": "bullet_fire.wav"
+  },
+  "tile": {
+    "bullets": "explosions.png",
+    "explosions": "explosions.png",
+    "ground": "ground.png",
+    "height": 64,
+    "units": "units.png",
+    "walls": "walls.png",
+    "width": 64
+  }
+}

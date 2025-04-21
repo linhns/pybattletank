@@ -1,9 +1,12 @@
 import asyncio
 import importlib.resources
+import json
 import math
 import os
+import pathlib
 from collections.abc import Sequence
-from typing import Any, Optional
+from importlib.resources import Package
+from typing import Any, Optional, Union
 
 import pygame
 import tmx
@@ -224,10 +227,103 @@ class DeleteDestroyedCommand(Command):
         self.items = [item for item in self.items if item.alive]
 
 
+class AssetLocator:
+    def locate(self, name: str) -> Union[str, os.PathLike]:
+        raise NotImplementedError()
+
+
+class PackagedAssetLocator(AssetLocator):
+    def __init__(self, anchor: Package) -> None:
+        self.traversable = importlib.resources.files(anchor)
+
+    def locate(self, name: str) -> Union[str, os.PathLike]:
+        with importlib.resources.as_file(self.traversable.joinpath(name)) as path:
+            fp = path.resolve()
+        return fp
+
+
+class LoadThemeError(RuntimeError):
+    def __init__(self, message: str, *args: Any) -> None:
+        self.message = message.format(*args)
+        super().__init__(self.message)
+
+
+class Theme:
+    def __init__(self, locator: AssetLocator, filename: str) -> None:
+        self.locator = locator
+
+        loc = locator.locate(filename)
+        with open(loc, encoding="utf-8") as file:
+            data = json.load(file)
+
+        def fail_if_not_exists(data: dict[str, dict[str, Any]], section: str, name: str) -> str:
+            if section not in data:
+                msg = "No section {} in {}"
+                raise LoadThemeError(msg, section, filename)
+            section_data = data[section]
+            if name not in section_data:
+                msg = "No section {}.{} in {}"
+                raise LoadThemeError(msg, section, name, filename)
+            location = locator.locate(section_data[name])
+            if not os.path.exists(location):
+                msg = "No file {}"
+                raise LoadThemeError(msg, location)
+            return str(location)
+
+        self.default_window_width = int(data["defaultWindowWidth"])
+        self.default_window_height = int(data["defaultWindowHeight"])
+
+        self.title_font = fail_if_not_exists(data, "font", "title")
+        self.title_size = int(data["font"]["titleSize"])
+        self.menu_font = fail_if_not_exists(data, "font", "menu")
+        self.menu_size = int(data["font"]["menuSize"])
+        self.message_font = fail_if_not_exists(data, "font", "message")
+        self.message_size = int(data["font"]["messageSize"])
+
+        self.cursor_image = fail_if_not_exists(data, "image", "cursor")
+
+        tile_data = data["tile"]
+        tile_width = tile_data["width"]
+        tile_height = tile_data["height"]
+        self.tile_size = (tile_width, tile_height)
+        self.ground_tileset = fail_if_not_exists(data, "tile", "ground")
+        self.walls_tileset = fail_if_not_exists(data, "tile", "walls")
+        self.units_tileset = fail_if_not_exists(data, "tile", "units")
+        self.bullets_tileset = fail_if_not_exists(data, "tile", "bullets")
+        self.explosions_tileset = fail_if_not_exists(data, "tile", "explosions")
+
+        def set_if_exists(data: dict[str, dict[str, Any]], section: str, name: str) -> Optional[str]:
+            if section not in data:
+                return None
+            section_data = data[section]
+            if name not in section_data:
+                return None
+            location: str = section_data[name]
+            return location if not os.path.exists(location) else None
+
+        self.fire_sound = set_if_exists(data, "sound", "fire")
+        self.explosion_sound = set_if_exists(data, "sound", "explosion")
+        self.start_music = set_if_exists(data, "music", "start")
+        self.play_music = set_if_exists(data, "music", "play")
+        self.victory_music = set_if_exists(data, "music", "victory")
+        self.fail_music = set_if_exists(data, "music", "fail")
+
+    def locate_resource(self, name: str) -> Union[str, os.PathLike]:
+        return self.locator.locate(name)
+
+
 class Layer(IGameStateObserver):
-    def __init__(self, ui: "PlayGameMode", image_filename: str) -> None:
-        self.ui = ui
-        self.tileset = pygame.image.load(image_filename)
+    def __init__(self, theme: Theme) -> None:
+        self.theme = theme
+
+    def render(self, surface: pygame.Surface) -> None:
+        raise NotImplementedError()
+
+
+class TiledLayer(Layer):
+    def __init__(self, theme: Theme, imagefile: str) -> None:
+        super().__init__(theme)
+        self.tileset = pygame.image.load(imagefile)
 
     def draw_tile(
         self,
@@ -236,8 +332,8 @@ class Layer(IGameStateObserver):
         tile_coords: tuple[int, int],
         angle: Optional[float] = None,
     ) -> None:
-        tile_width = self.ui.tile_width
-        tile_height = self.ui.tile_height
+        tile_width = self.theme.tile_size[0]
+        tile_height = self.theme.tile_size[1]
         sprite_x = position[0] * tile_width
         sprite_y = position[1] * tile_height
         tile_x = tile_coords[0] * tile_width
@@ -253,20 +349,17 @@ class Layer(IGameStateObserver):
             sprite_y -= (rotated_tile.get_height() - tile.get_height()) // 2
             surface.blit(rotated_tile, (sprite_x, sprite_y))
 
-    def render(self, surface: pygame.Surface) -> None:
-        raise NotImplementedError()
 
-
-class ArrayLayer(Layer):
+class ArrayLayer(TiledLayer):
     def __init__(
         self,
-        ui: "PlayGameMode",
+        theme: Theme,
         image_filename: str,
         state: GameState,
         array: list[list[Optional[tuple[int, int]]]],
         surface_flags: int = pygame.SRCALPHA,
     ) -> None:
-        super().__init__(ui, image_filename)
+        super().__init__(theme, image_filename)
         self.state = state
         self.array = array
         self.surface: Optional[pygame.Surface] = None
@@ -284,9 +377,9 @@ class ArrayLayer(Layer):
         surface.blit(self.surface, (0, 0))
 
 
-class UnitsLayer(Layer):
-    def __init__(self, ui: "PlayGameMode", image_filename: str, state: GameState, units: list[Unit]) -> None:
-        super().__init__(ui, image_filename)
+class UnitsLayer(TiledLayer):
+    def __init__(self, theme: Theme, image_filename: str, state: GameState, units: list[Unit]) -> None:
+        super().__init__(theme, image_filename)
         self.state = state
         self.units = units
 
@@ -301,9 +394,9 @@ class UnitsLayer(Layer):
             self.draw_tile(surface, unit.position, (4, 1), angle)
 
 
-class BulletsLayer(Layer):
-    def __init__(self, ui: "PlayGameMode", image_filename: str, state: GameState, bullets: list[Bullet]) -> None:
-        super().__init__(ui, image_filename)
+class BulletsLayer(TiledLayer):
+    def __init__(self, theme: Theme, image_filename: str, state: GameState, bullets: list[Bullet]) -> None:
+        super().__init__(theme, image_filename)
         self.state = state
         self.bullets = bullets
 
@@ -313,9 +406,9 @@ class BulletsLayer(Layer):
                 self.draw_tile(surface, bullet.position, bullet.tile, bullet.orientation)
 
 
-class ExplosionsLayer(Layer):
-    def __init__(self, ui: "PlayGameMode", image_filename: str) -> None:
-        super().__init__(ui, image_filename)
+class ExplosionsLayer(TiledLayer):
+    def __init__(self, theme: Theme, image_filename: str) -> None:
+        super().__init__(theme, image_filename)
         self.explosions: list[dict[str, Any]] = []
         self.max_frame_index = 27
 
@@ -336,23 +429,31 @@ class ExplosionsLayer(Layer):
 
 
 class SoundLayer(Layer):
-    def __init__(self, fire_file: str, explosion_file: str) -> None:
-        fire_sound_path = importlib.resources.files("pybattletank.assets").joinpath(fire_file)
-        self.fire_sound = pygame.mixer.Sound(fire_sound_path)
-        self.fire_sound.set_volume(0.2)
+    def __init__(self, theme: Theme) -> None:
+        super().__init__(theme)
+        self.fire_sound: Optional[pygame.mixer.Sound] = None
+        self.explosion_sound: Optional[pygame.mixer.Sound] = None
 
-        explosion_sound_path = importlib.resources.files("pybattletank.assets").joinpath(explosion_file)
-        self.explosion_sound = pygame.mixer.Sound(explosion_sound_path)
-        self.explosion_sound.set_volume(0.2)
+        if theme.fire_sound is not None:
+            fire_sound_path = theme.locate_resource(theme.fire_sound)
+            self.fire_sound = pygame.mixer.Sound(fire_sound_path)
+            self.fire_sound.set_volume(0.2)
+
+        if theme.explosion_sound is not None:
+            explosion_sound_path = theme.locate_resource(theme.explosion_sound)
+            self.explosion_sound = pygame.mixer.Sound(explosion_sound_path)
+            self.explosion_sound.set_volume(0.2)
 
     def render(self, surface: pygame.Surface) -> None:
         pass
 
     def unit_destroyed(self, unit: Unit) -> None:
-        self.explosion_sound.play()
+        if self.explosion_sound is not None:
+            self.explosion_sound.play()
 
     def bullets_fired(self, unit: Unit) -> None:
-        self.fire_sound.play()
+        if self.fire_sound is not None:
+            self.fire_sound.play()
 
 
 class LoadLevelError(RuntimeError):
@@ -381,7 +482,10 @@ class LevelLoader:
                 raise LoadLevelError(self.filename, "no tilesets")
             tileset = tilemap.tilesets[0]
         else:
-            tileset = next((t for t in tilemap.tilesets if gid >= t.firstgid and gid < t.firstgid + t.tilecount), None)
+            tileset = next(
+                (t for t in tilemap.tilesets if gid >= t.firstgid and gid < t.firstgid + t.tilecount),
+                None,
+            )
             if tileset is None:
                 raise LoadLevelError(self.filename, "no corresponding tileset")
 
@@ -484,7 +588,13 @@ class IGameModeObserver:
     def load_level_requested(self, filename: str) -> None:
         pass
 
-    def show_menu_requested(self) -> None:
+    def show_menu_requested(self, menu_name: str) -> None:
+        pass
+
+    def show_message_requested(self, message: str) -> None:
+        pass
+
+    def change_theme_requested(self, theme_file: str) -> None:
         pass
 
     def show_game_requested(self) -> None:
@@ -511,9 +621,17 @@ class GameMode:
         for observer in self.observers:
             observer.load_level_requested(filename)
 
-    def notify_show_menu_requested(self) -> None:
+    def notify_show_menu_requested(self, menu_name: str) -> None:
         for observer in self.observers:
-            observer.show_menu_requested()
+            observer.show_menu_requested(menu_name)
+
+    def notify_show_message_requested(self, message: str) -> None:
+        for observer in self.observers:
+            observer.show_message_requested(message)
+
+    def notify_change_theme_requested(self, theme_file: str) -> None:
+        for observer in self.observers:
+            observer.change_theme_requested(theme_file)
 
     def notify_show_game_requested(self) -> None:
         for observer in self.observers:
@@ -542,56 +660,68 @@ class GameMode:
 
 
 class MessageGameMode(GameMode):
-    def __init__(self, message: str) -> None:
+    def __init__(self, theme: Theme, message: str) -> None:
         super().__init__()
-        self.message = message
-        font_path = importlib.resources.files("pybattletank.assets").joinpath("font.ttf")
-        self.font = pygame.font.Font(str(font_path), 36)
+        font_path = theme.locate_resource(theme.message_font)
+        self.font = pygame.font.Font(font_path, theme.message_size)
+
+        width, height = 0, 0
+        lines = message.split("\n")
+        surfaces = []
+        for line in lines:
+            surface = self.font.render(line, True, pygame.Color(200, 0, 0))
+            height += surface.get_height()
+            width = max(width, surface.get_width())
+            surfaces.append(surface)
+
+        y = 0
+        main_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        for surface in surfaces:
+            x = (main_surface.get_width() - surface.get_width()) // 2
+            main_surface.blit(surface, (x, y))
+            y += main_surface.get_height()
+        self.surface = main_surface
 
     def process_input(self, mouse_x: float, mouse_y: float) -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.notify_quit_requested()
-            elif event.type == pygame.KEYDOWN and event.key in [pygame.K_ESCAPE, pygame.K_SPACE, pygame.K_RETURN]:
-                self.notify_show_menu_requested()
+            elif event.type == pygame.KEYDOWN and event.key in [
+                pygame.K_ESCAPE,
+                pygame.K_SPACE,
+                pygame.K_RETURN,
+            ]:
+                self.notify_show_menu_requested("main")
 
     def update(self) -> None:
         pass
 
     def render(self, surface: pygame.Surface) -> None:
-        text_surface = self.font.render(self.message, True, pygame.Color(200, 0, 0))
-        x = (surface.get_width() - text_surface.get_width()) // 2
-        y = (surface.get_height() - text_surface.get_height()) // 2
-        surface.blit(text_surface, (x, y))
+        x = (surface.get_width() - self.surface.get_width()) // 2
+        y = (surface.get_height() - self.surface.get_height()) // 2
+        surface.blit(self.surface, (x, y))
 
 
 class MenuGameMode(GameMode):
-    def __init__(self) -> None:
+    def __init__(self, theme: Theme, menu_items: list[dict]) -> None:
         super().__init__()
 
-        menu_font_path = importlib.resources.files("pybattletank.assets").joinpath("font.ttf")
-        self.title_font = pygame.font.Font(str(menu_font_path), 64)
-        self.item_font = pygame.font.Font(str(menu_font_path), 42)
+        title_font_path = theme.locate_resource(theme.title_font)
+        menu_font_path = theme.locate_resource(theme.menu_font)
+        self.title_font = pygame.font.Font(title_font_path, theme.title_size)
+        self.item_font = pygame.font.Font(menu_font_path, theme.menu_size)
 
-        self.menu_items: list[dict] = [
-            {"title": "Level 1", "action": lambda: self.notify_load_level_requested(self.get_level_path("level1.tmx"))},
-            {"title": "Quit", "action": lambda: self.notify_quit_requested()},
-        ]
-
+        self.menu_width = 0
+        self.menu_items = menu_items
         self.text_color = pygame.Color(200, 0, 0)
-        surfaces = [self.item_font.render(item["title"], True, self.text_color) for item in self.menu_items]
-        self.menu_width = max(surface.get_width() for surface in surfaces)
-
-        for item, surface in zip(self.menu_items, surfaces):
+        for item in self.menu_items:
+            surface = self.item_font.render(item["title"], True, self.text_color)
+            self.menu_width = max(surface.get_width(), self.menu_width)
             item["surface"] = surface
 
         self.current_menu_item = 0
-        menu_cursor_path = importlib.resources.files("pybattletank.assets").joinpath("cursor.png")
-        self.menu_cursor = pygame.image.load(str(menu_cursor_path))
-
-    def get_level_path(self, filename: str) -> str:
-        level_path = importlib.resources.files("pybattletank.assets").joinpath(filename)
-        return str(level_path)
+        menu_cursor_path = theme.locate_resource(theme.cursor_image)
+        self.menu_cursor = pygame.image.load(menu_cursor_path)
 
     def update(self) -> None:
         pass
@@ -636,14 +766,126 @@ class MenuGameMode(GameMode):
             y += (120 * item_surface.get_height()) // 100
 
 
+class MainMenuGameMode(MenuGameMode):
+    def __init__(self, theme: Theme):
+        menu_items = [
+            {
+                "title": "Play",
+                "action": lambda: self.notify_show_menu_requested("play"),
+            },
+            {
+                "title": "Select Theme",
+                "action": lambda: self.notify_show_menu_requested("theme"),
+            },
+            {"title": "Quit", "action": lambda: self.notify_quit_requested()},
+        ]
+        super().__init__(theme, menu_items)
+
+
+class FindLevelError(ValueError):
+    def __init__(self, message: str, *args: Any) -> None:
+        self.message = message.format(*args)
+        super().__init__(self.message)
+
+
+class LevelFinder:
+    def all(self) -> list[dict[str, Any]]:
+        raise NotImplementedError()
+
+
+class PackagedLevelFinder(LevelFinder):
+    def __init__(self, anchor: Package) -> None:
+        self.traversable = importlib.resources.files(anchor)
+
+    def all(self) -> list[dict[str, Any]]:
+        levels = []
+        for item in self.traversable.iterdir():
+            if not item.is_file():
+                continue
+            basename = os.path.basename(str(item))
+            name, ext = os.path.splitext(basename)
+            if ext != ".tmx":
+                continue
+            with importlib.resources.as_file(self.traversable.joinpath(basename)) as file:
+                levels.append({"name": name, "path": file.resolve()})
+        return levels
+
+
+class DirectoryLevelFinder(LevelFinder):
+    def __init__(self, root_dir: Union[str, pathlib.Path]) -> None:
+        self.root_dir = pathlib.Path(root_dir)
+
+        if not self.root_dir.is_dir():
+            msg = "{} is not a directory"
+            raise FindLevelError(msg, self.root_dir)
+
+    def all(self) -> list[dict[str, Any]]:
+        levels = []
+        for file in self.root_dir.glob("*.tmx"):
+            levels.append({"name": file.stem, "path": file.resolve()})
+        return levels
+
+
+class MultiSourceLevelFinder(LevelFinder):
+    def __init__(self, *sources: LevelFinder) -> None:
+        self.sources = list(sources)
+
+    def all(self) -> list[dict[str, Any]]:
+        return [item for source in self.sources for item in source.all()]
+
+
+class PlayMenuGameMode(MenuGameMode):
+    def __init__(self, theme: Theme, level_finder: LevelFinder):
+        menu_items = []
+        levels = level_finder.all()
+        for level in levels:
+            menu_items.append({
+                "title": level["name"],
+                "action": lambda file=str(level["path"]): self.notify_load_level_requested(file),
+            })
+        menu_items.append(
+            {
+                "title": "Back",
+                "action": lambda: self.notify_show_menu_requested("main"),
+            },
+        )
+        super().__init__(theme, menu_items)
+
+
+class ThemeMenuGameMode(MenuGameMode):
+    def __init__(self, theme: Theme):
+        menu_items = []
+        for file in os.listdir("."):
+            name, ext = os.path.splitext(file)
+            if ext != ".json":
+                continue
+            menu_items.append({
+                "title": name,
+                "action": lambda file=file: self.notify_change_theme_requested(self.get_theme_path(file)),
+            })
+        menu_items.append(
+            {
+                "title": "Back",
+                "action": lambda: self.notify_show_menu_requested("main"),
+            },
+        )
+        super().__init__(theme, menu_items)
+
+    def get_theme_path(self, filename: str) -> str:
+        level_path = importlib.resources.files("pybattletank.assets").joinpath(filename)
+        return str(level_path)
+
+
 class PlayGameMode(GameMode):
-    def load_level(self, filename: str) -> None:
+    def load_level(self, theme: Theme, filename: str) -> None:
+        self.theme = theme
+
         loader = LevelLoader(filename)
         loader.run()
 
         self.game_state = state = loader.state
-        self.tile_width = loader.tile_size[0]
-        self.tile_height = loader.tile_size[1]
+        self.tile_width = theme.tile_size[0]
+        self.tile_height = theme.tile_size[1]
 
         self.render_width = state.world_size[0] * self.tile_width
         self.render_height = state.world_size[1] * self.tile_height
@@ -653,12 +895,12 @@ class PlayGameMode(GameMode):
         self.rescaled_scale_y = 1.0
 
         self.layers = [
-            ArrayLayer(self, loader.ground_tileset, state, state.ground, 0),
-            ArrayLayer(self, loader.walls_tileset, state, state.walls),
-            UnitsLayer(self, loader.units_tileset, state, state.units),
-            BulletsLayer(self, loader.bullets_tileset, state, state.bullets),
-            ExplosionsLayer(self, loader.explosions_tileset),
-            SoundLayer("bullet_fire.wav", "explosion.wav"),
+            ArrayLayer(theme, theme.ground_tileset, state, state.ground, 0),
+            ArrayLayer(theme, theme.walls_tileset, state, state.walls),
+            UnitsLayer(theme, theme.units_tileset, state, state.units),
+            BulletsLayer(theme, theme.bullets_tileset, state, state.bullets),
+            ExplosionsLayer(theme, theme.explosions_tileset),
+            SoundLayer(theme),
         ]
 
         for layer in self.layers:
@@ -671,13 +913,18 @@ class PlayGameMode(GameMode):
     def process_input(self, mouse_x: float, mouse_y: float) -> None:
         dx, dy = 0, 0
         mouse_clicked = False
-        movement_keys = {pygame.K_RIGHT: (1, 0), pygame.K_LEFT: (-1, 0), pygame.K_DOWN: (0, 1), pygame.K_UP: (0, -1)}
+        movement_keys = {
+            pygame.K_d: (1, 0),
+            pygame.K_a: (-1, 0),
+            pygame.K_s: (0, 1),
+            pygame.K_w: (0, -1),
+        }
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.notify_quit_requested()
                 break
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                self.notify_show_menu_requested()
+                self.notify_show_menu_requested("main")
             elif event.type == pygame.KEYDOWN and event.key in movement_keys:
                 dx, dy = movement_keys[event.key]
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -691,7 +938,10 @@ class PlayGameMode(GameMode):
         if dx != 0 or dy != 0:
             self.commands.append(MoveCommand(state, player_unit, (dx, dy)))
 
-        target_cell = (mouse_x / self.tile_width - 0.5, mouse_y / self.tile_height - 0.5)
+        target_cell = (
+            mouse_x / self.tile_width - 0.5,
+            mouse_y / self.tile_height - 0.5,
+        )
         self.commands.append(TargetCommand(state, player_unit, target_cell))
 
         self.commands.extend([
@@ -730,11 +980,14 @@ class PlayGameMode(GameMode):
 
 
 class UserInterface(IGameModeObserver):
-    def __init__(self) -> None:
+    def __init__(self, theme: Theme, locator: AssetLocator, level_finder: LevelFinder) -> None:
         pygame.init()
 
-        self.render_width = 1280
-        self.render_height = 704
+        self.theme = theme
+        self.locator = locator
+        self.level_finder = level_finder
+        self.render_width = theme.default_window_width
+        self.render_height = theme.default_window_height
         self.rescaled_x = 0
         self.rescaled_y = 0
         self.rescaled_scale_x = 1.0
@@ -746,29 +999,33 @@ class UserInterface(IGameModeObserver):
         )
 
         pygame.display.set_caption("pybattletank")
-        icon_path = importlib.resources.files("pybattletank.assets").joinpath("icon.png")
-        icon = pygame.image.load(str(icon_path))
+        icon_path = locator.locate("icon.png")
+        icon = pygame.image.load(icon_path)
         pygame.display.set_icon(icon)
 
         self.play_game_mode: Optional[PlayGameMode] = None
-        self.overlay_game_mode: GameMode = MenuGameMode()
+        self.overlay_game_mode: GameMode = MainMenuGameMode(theme)
         self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
+
+        if theme.start_music is not None:
+            pygame.mixer.music.load(theme.locate_resource(theme.start_music))
+            pygame.mixer.music.play(loops=-1)
 
         self.clock = pygame.time.Clock()
         self.running = True
 
     def game_won(self) -> None:
         self.show_message("Victory!")
-        music_path = importlib.resources.files("pybattletank.assets").joinpath("opening_day.mp3")
-        pygame.mixer.music.load(str(music_path))
-        pygame.mixer.music.play(loops=-1)
+        if self.theme.victory_music is not None:
+            pygame.mixer.music.load(self.theme.locate_resource(self.theme.victory_music))
+            pygame.mixer.music.play(loops=-1)
 
     def game_lost(self) -> None:
         self.show_message("GAME OVER")
-        music_path = importlib.resources.files("pybattletank.assets").joinpath("deadly_talk.mp3")
-        pygame.mixer.music.load(str(music_path))
-        pygame.mixer.music.play(loops=-1)
+        if self.theme.fail_music is not None:
+            pygame.mixer.music.load(self.theme.locate_resource(self.theme.fail_music))
+            pygame.mixer.music.play(loops=-1)
 
     def load_level_requested(self, filename: str) -> None:
         if self.play_game_mode is None:
@@ -776,7 +1033,7 @@ class UserInterface(IGameModeObserver):
             self.play_game_mode.add_observer(self)
 
         try:
-            self.play_game_mode.load_level(filename)
+            self.play_game_mode.load_level(self.theme, filename)
             self.render_width = self.play_game_mode.render_width
             self.render_height = self.play_game_mode.render_height
             self.play_game_mode.update()
@@ -785,6 +1042,10 @@ class UserInterface(IGameModeObserver):
             print(ex)
             self.play_game_mode = None
             self.show_message("Level loading failed!")
+
+        if self.theme.play_music is not None:
+            pygame.mixer.music.load(self.theme.locate_resource(self.theme.play_music))
+            pygame.mixer.music.play(loops=-1)
 
     def get_mouse_pos(self) -> tuple[float, float]:
         mouse_pos = pygame.mouse.get_pos()
@@ -797,15 +1058,42 @@ class UserInterface(IGameModeObserver):
             return
         self.active_mode = "Play"
 
-    def show_menu_requested(self) -> None:
-        self.overlay_game_mode = MenuGameMode()
+    def show_menu_requested(self, menu_name: str) -> None:
+        if menu_name == "play":
+            self.overlay_game_mode = PlayMenuGameMode(self.theme, self.level_finder)
+        elif menu_name == "theme":
+            self.overlay_game_mode = ThemeMenuGameMode(self.theme)
+        else:
+            self.overlay_game_mode = MainMenuGameMode(self.theme)
+
         self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
 
     def show_message(self, message: str) -> None:
-        self.overlay_game_mode = MessageGameMode(message)
+        self.overlay_game_mode = MessageGameMode(self.theme, message)
         self.overlay_game_mode.add_observer(self)
         self.active_mode = "Overlay"
+
+    def show_message_requested(self, message: str) -> None:
+        self.show_message(message)
+
+        if self.theme.start_music is not None:
+            pygame.mixer.music.load(self.theme.locate_resource(self.theme.start_music))
+            pygame.mixer.music.play(loops=-1)
+
+    def change_theme_requested(self, theme_file: str) -> None:
+        try:
+            theme = Theme(self.locator, theme_file)
+        except Exception as ex:
+            print(ex)
+            self.show_message(str(ex))
+            return
+
+        self.theme = theme
+        self.render_width = theme.default_window_width
+        self.render_height = theme.default_window_height
+        self.play_game_mode = None
+        self.show_menu_requested("main")
 
     def quit_requested(self) -> None:
         self.running = False
