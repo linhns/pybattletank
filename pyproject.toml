@@ -1,6 +1,6 @@
 [project]
 name = "pybattletank"
-version = "0.0.2"
+version = "0.0.3"
 description = "BattleTank game using pygame"
 authors = [{ name = "Nguyen Son Linh", email = "linhns59@gmail.com" }]
 readme = "README.md"
