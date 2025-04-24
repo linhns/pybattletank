@@ -9,8 +9,8 @@ class MenuGameMode(GameMode):
     def __init__(self, theme: Theme, menu_items: list[dict]) -> None:
         super().__init__()
 
-        title_font_path = theme.locate_resource(theme.title_font)
-        menu_font_path = theme.locate_resource(theme.menu_font)
+        title_font_path = theme.title_font
+        menu_font_path = theme.menu_font
         self.title_font = pygame.font.Font(title_font_path, theme.title_size)
         self.item_font = pygame.font.Font(menu_font_path, theme.menu_size)
 
@@ -23,7 +23,7 @@ class MenuGameMode(GameMode):
             item["surface"] = surface
 
         self.current_menu_item = 0
-        menu_cursor_path = theme.locate_resource(theme.cursor_image)
+        menu_cursor_path = theme.cursor_image
         self.menu_cursor = pygame.image.load(menu_cursor_path)
 
     def update(self) -> None:

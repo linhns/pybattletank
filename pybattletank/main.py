@@ -6,13 +6,23 @@ from pybattletank.finders.directory_level_finder import DirectoryLevelFinder
 from pybattletank.finders.multisource_level_finder import MultiSourceLevelFinder
 from pybattletank.finders.packaged_level_finder import PackagedLevelFinder
 from pybattletank.layers.theme import Theme
+from pybattletank.locators.directory_asset_locator import DirectoryAssetLocator
 from pybattletank.locators.packaged_asset_locator import PackagedAssetLocator
 from pybattletank.ui.user_interface import UserInterface
 
 os.environ["SDL_VIDEO_CENTERED"] = "1"
 
 
-async def main() -> None:
+async def run_as_executable() -> None:
+    locator = DirectoryAssetLocator("assets")
+    theme = Theme(locator, "theme.json")
+    finder = DirectoryLevelFinder("assets")
+    game = UserInterface(theme, locator, finder)
+    await game.run()
+    pygame.quit()
+
+
+async def run() -> None:
     locator = PackagedAssetLocator("pybattletank.assets")
     theme = Theme(locator, "theme.json")
     packaged_level_finder = PackagedLevelFinder("pybattletank.assets")

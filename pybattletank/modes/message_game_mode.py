@@ -8,7 +8,7 @@ from .game_mode import GameMode
 class MessageGameMode(GameMode):
     def __init__(self, theme: Theme, message: str) -> None:
         super().__init__()
-        font_path = theme.locate_resource(theme.message_font)
+        font_path = theme.message_font
         self.font = pygame.font.Font(font_path, theme.message_size)
 
         width, height = 0, 0

@@ -1,10 +1,14 @@
 import asyncio
 
-from .main import main as async_main
+from pybattletank.main import run, run_as_executable
 
 
 def main() -> None:
-    asyncio.run(async_main())
+    asyncio.run(run())
+
+
+def executable() -> None:
+    asyncio.run(run_as_executable())
 
 
 if __name__ == "__main__":

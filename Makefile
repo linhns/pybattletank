@@ -20,6 +20,11 @@ test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
 	@uv run python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml
 
+.PHONY: build-executable
+build-executable: ## Build executable
+	@echo "🚀 Building executable"
+	@pyinstaller pybattletank.py --onefile --clean --add-data "pybattletank/assets:assets"
+
 .PHONY: build
 build: clean-build ## Build wheel file
 	@echo "🚀 Creating wheel file"
