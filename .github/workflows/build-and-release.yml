@@ -28,13 +28,7 @@ jobs:
           --add-data "pybattletank/assets:assets"
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
-        run: |
-          uv run pyinstaller pybattletank.py \
-          --onefile \
-          --clean \
-          --noconfirm \
-          --windowed \
-          --add-data "pybattletank/assets;assets"
+        run: uv run pyinstaller pybattletank.py --onefile --clean --noconfirm --windowed --add-data "pybattletank/assets;assets"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
