@@ -29,10 +29,16 @@ jobs:
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
         run: uv run pyinstaller pybattletank.py --onefile --clean --noconfirm --windowed --add-data "pybattletank/assets;assets"
+      - name: Rename output (Unix)
+        if: matrix.os != 'windows-latest'
+        run: mv dist/pybattletank dist/pybattletank-${{ runner.os }}-${{ runner.arch }}
+      - name: Rename output (Windows)
+        if: matrix.os == 'windows-latest'
+        run: mv dist/pybattletank.exe dist/pybattletank-${{ runner.os }}-${{ runner.arch }}.exe
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pybattletank-${{ runner.os }}
+          name: pybattletank-${{ runner.os }}-${{ runner.arch }}
           path: dist/pybattletank*
   release:
     name: Publish GitHub release
@@ -47,7 +53,7 @@ jobs:
       - name: List downloaded files
         run: ls -R dist
       - name: Upload to GitHub release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           token: ${{ secrets.RELEASE_TOKEN }}
