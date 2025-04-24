@@ -1,0 +1,59 @@
+name: release-main
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.11"
+      - name: Build executable (Unix)
+        if: matrix.os != "windows-latest"
+        run: |
+          pyinstaller pybattletank.py \
+          --onefile \
+          --clean \
+          --noconfirm \
+          --windowed \
+          --add-data "pybattletank/assets:assets"
+      - name: Build executable (Windows)
+        if: matrix.os == "windows-latest"
+        run: |
+          pyinstaller pybattletank.py \
+          --onefile \
+          --clean \
+          --noconfirm \
+          --windowed \
+          --add-data "pybattletank/assets;assets"
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pybattletank-${{ runner.os }}
+          path: dist/pybattletank*
+  release:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: List downloaded files
+        run: ls -R dist
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+          token: ${{ secrets.RELEASE_TOKEN }}
