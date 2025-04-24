@@ -20,7 +20,7 @@ jobs:
       - name: Build executable (Unix)
         if: matrix.os != 'windows-latest'
         run: |
-          pyinstaller pybattletank.py \
+          uv run pyinstaller pybattletank.py \
           --onefile \
           --clean \
           --noconfirm \
@@ -29,7 +29,7 @@ jobs:
       - name: Build executable (Windows)
         if: matrix.os == 'windows-latest'
         run: |
-          pyinstaller pybattletank.py \
+          uv run pyinstaller pybattletank.py \
           --onefile \
           --clean \
           --noconfirm \
