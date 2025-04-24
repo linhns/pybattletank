@@ -1,4 +1,4 @@
-name: release-main
+name: build-and-release
 on:
   push:
     tags:
@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Build executable (Unix)
-        if: matrix.os != "windows-latest"
+        if: matrix.os != 'windows-latest'
         run: |
           pyinstaller pybattletank.py \
           --onefile \
@@ -27,7 +27,7 @@ jobs:
           --windowed \
           --add-data "pybattletank/assets:assets"
       - name: Build executable (Windows)
-        if: matrix.os == "windows-latest"
+        if: matrix.os == 'windows-latest'
         run: |
           pyinstaller pybattletank.py \
           --onefile \
