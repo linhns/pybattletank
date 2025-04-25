@@ -23,7 +23,7 @@ test: ## Test the code with pytest
 .PHONY: build-executable
 build-executable: ## Build executable
 	@echo "🚀 Building executable"
-	@pyinstaller pybattletank.py --onefile --clean --add-data "pybattletank/assets:assets"
+	@uv run pyinstaller pybattletank.py --onefile --clean --noconfirm --add-data "pybattletank/assets:assets"
 
 .PHONY: build
 build: clean-build ## Build wheel file
