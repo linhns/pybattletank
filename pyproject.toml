@@ -1,6 +1,6 @@
 [project]
 name = "pybattletank"
-version = "0.0.5"
+version = "0.0.6"
 description = "Battletank game created to explore Python packaging landscape"
 authors = [{ name = "Nguyen Son Linh", email = "linhns59@gmail.com" }]
 readme = "README.md"
