@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://linhns.github.io/pybattletank/</loc>
+         <loc>https://linhns.me/pybattletank/</loc>
          <lastmod>2025-04-28</lastmod>
     </url>
     <url>
-         <loc>https://linhns.github.io/pybattletank/creating_levels/</loc>
+         <loc>https://linhns.me/pybattletank/creating_levels/</loc>
          <lastmod>2025-04-28</lastmod>
     </url>
     <url>
-         <loc>https://linhns.github.io/pybattletank/game_controls/</loc>
+         <loc>https://linhns.me/pybattletank/game_controls/</loc>
          <lastmod>2025-04-28</lastmod>
     </url>
     <url>
-         <loc>https://linhns.github.io/pybattletank/installation/</loc>
+         <loc>https://linhns.me/pybattletank/installation/</loc>
          <lastmod>2025-04-28</lastmod>
     </url>
 </urlset>
