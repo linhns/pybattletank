@@ -1,13 +1,15 @@
 [project]
 name = "pybattletank"
 version = "0.0.5"
-description = "BattleTank game using pygame"
+description = "Battletank game created to explore Python packaging landscape"
 authors = [{ name = "Nguyen Son Linh", email = "linhns59@gmail.com" }]
 readme = "README.md"
 keywords = ['python']
 requires-python = ">=3.9,<4.0"
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -15,7 +17,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Games/Entertainment :: Arcade",
+    "Topic :: Software Development :: Libraries :: pygame"
 ]
 dependencies = [
     "pygame>=2.6.1",

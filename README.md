@@ -6,69 +6,62 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/linhns/pybattletank)](https://img.shields.io/github/commit-activity/m/linhns/pybattletank)
 [![License](https://img.shields.io/github/license/linhns/pybattletank)](https://img.shields.io/github/license/linhns/pybattletank)
 
-BattleTank game using pygame
+pybattletank is a simple tower defense game written using
+[pygame](https://www.pygame.org/) to explore
+game development and the Python packaging landscape.
 
-- **Github repository**: <https://github.com/linhns/pybattletank/>
-- **Documentation** <https://linhns.github.io/pybattletank/>
+The gameplay is based on Philipe-Henri Gosselin's well-written series [Discover
+Python and Patterns](https://www.patternsgameprog.com/series/discover-python-and-patterns/).
 
-## Getting started with your project
+![Demo](./docs/assets/images/pybattletank.gif)
 
-### 1. Create a New Repository
+Detailed documentation is available at <https://linhns.github.io/pybattletank/>.
 
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+## Installation
 
-```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:linhns/pybattletank.git
-git push -u origin main
-```
+There are a number of ways to obtain the game:
 
-### 2. Set Up Your Development Environment
+- Install via [pip](https://github.com/pypa/pip):
 
-Then, install the environment and the pre-commit hooks with
+  ```shell
+  pip install pybattletank
+  ```
 
-```bash
-make install
-```
+  Then, run the game:
 
-This will also generate your `uv.lock` file
+  ```shell
+  pybattletank
+  ```
 
-### 3. Run the pre-commit hooks
+  or:
 
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
+  ```shell
+  python -m pybattletank
+  ```
 
-```bash
-uv run pre-commit run -a
-```
+- Run without installation using [uv](https://github.com/astral-sh/uv):
 
-### 4. Commit the changes
+  ```shell
+  uvx pybattletank
+  ```
 
-Lastly, commit the changes made by the two steps above to your repository.
+- Grab the binary for your operating system from the
+[releases](https://github.com/linhns/pybattletank/releases) page.
 
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
-```
+## Usage
 
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
+### Basic game controls
 
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
+- `W`, `A`, `S`, `D` to move tank.
+- **Left-click** to shoot.
+- Arrow keys/`Enter` to select menu items.
 
-## Releasing a new version
+### Adding levels
 
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/linhns/pybattletank/settings/secrets/actions/new).
-- Create a [new release](https://github.com/linhns/pybattletank/releases/new) on Github.
-- Create a new tag in the form `*.*.*`.
+Beside the packaged levels, users can create custom ones. Read this [guide](https://linhns.github.io/pybattletank/creating_levels).
 
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
+## Acknowledgements
 
----
-
-Repository initiated with [fpgmaas/cookiecutter-uv](https://github.com/fpgmaas/cookiecutter-uv).
+- Philippe-Henri Gosselin (@philippehenri-gosselin) for the wonderful series
+  Discover Python and Patterns. <https://www.patternsgameprog.com/series/discover-python-and-patterns/>
+- Florian Mass (@fpgmass) for creating [cookiecutter-uv](https://github.com/fpgmaas/cookiecutter-uv).

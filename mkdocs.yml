@@ -1,15 +1,16 @@
 site_name: pybattletank
 repo_url: https://github.com/linhns/pybattletank
 site_url: https://linhns.github.io/pybattletank
-site_description: BattleTank game using pygame
+site_description: Battletank game created to explore Python packaging landscape
 site_author: Nguyen Son Linh
 edit_uri: edit/main/docs/
 repo_name: linhns/pybattletank
-copyright: Maintained by <a href="https://linhns.com">linhns</a>.
-
+copyright: Maintained by <a href="https://linhns.me">linhns</a>.
 nav:
   - Home: index.md
-  - Modules: modules.md
+  - Installation: installation.md
+  - Creating Levels: creating_levels.md
+  - Game Controls: game_controls.md
 plugins:
   - search
   - mkdocstrings:
@@ -18,35 +19,45 @@ plugins:
           paths: ["pybattletank"]
 theme:
   name: material
-  feature:
-    tabs: true
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - content.code.copy
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: white
-      accent: deep orange
+      accent: red
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: black
-      accent: deep orange
+      accent: red
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
   icon:
     repo: fontawesome/brands/github
-
+  favicon: assets/images/favicon.ico
+  logo: assets/images/logo.png
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/linhns/pybattletank
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/pybattletank
-
 markdown_extensions:
+  - admonition
   - toc:
       permalink: true
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

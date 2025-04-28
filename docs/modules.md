@@ -1,1 +1,0 @@
-::: pybattletank.foo
