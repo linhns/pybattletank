@@ -1,6 +1,6 @@
 site_name: pybattletank
 repo_url: https://github.com/linhns/pybattletank
-site_url: https://linhns.github.io/pybattletank
+site_url: https://linhns.me/pybattletank
 site_description: Battletank game created to explore Python packaging landscape
 site_author: Nguyen Son Linh
 edit_uri: edit/main/docs/
